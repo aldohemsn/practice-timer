@@ -8,5 +8,6 @@ A minimal, dependency-free countdown timer for the web.
 - Audio alert when time expires
 - Remembers the last duration on the current device
 - Responsive, touch-friendly interface
+- Installable PWA with a fully cached offline app shell
 
 Open `index.html` directly or publish the repository root with GitHub Pages.

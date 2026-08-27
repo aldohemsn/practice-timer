@@ -151,3 +151,9 @@ ui.hours.value = Math.floor(saved / 3600);
 ui.minutes.value = Math.floor((saved % 3600) / 60);
 ui.seconds.value = saved % 60;
 render();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js");
+  });
+}

@@ -5,13 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#000000">
   <meta name="description" content="A simple countdown timer.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Timer">
   <title>计时器</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <main class="timer-app">
-    <header><h1>计时器</h1></header>
-
     <section class="timer-face" aria-live="polite">
       <div class="picker" id="picker">
         <label><input id="hours" type="number" min="0" max="23" value="0" inputmode="numeric" aria-label="小时"><span>小时</span></label>

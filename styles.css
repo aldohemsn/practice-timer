@@ -82,6 +82,11 @@ h2 { margin: 7px 0 0; font-size: 24px; letter-spacing: -.035em; }
 .preset.active { border-color: rgba(216, 255, 101, .65); background: rgba(216, 255, 101, .07); }
 
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.task-name-field { display: none; grid-column: 1 / -1; }
+body.general-mode .task-name-field { display: grid; }
+body.general-mode .field:nth-of-type(3),
+body.general-mode .field:nth-of-type(4),
+body.general-mode .field:nth-of-type(5) { display: none; }
 .field { display: grid; gap: 7px; color: var(--muted); font-size: 12px; }
 .input-wrap { display: flex; align-items: center; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
 .input-wrap:focus-within { border-color: var(--accent); }
@@ -100,8 +105,17 @@ h2 { margin: 7px 0 0; font-size: 24px; letter-spacing: -.035em; }
 .toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); padding: 10px 16px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel-2); color: var(--ink); font-size: 13px; opacity: 0; pointer-events: none; transition: .2s ease; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+.result-dialog { width: min(420px, calc(100% - 32px)); padding: 34px; border: 1px solid var(--line); border-radius: 24px; background: var(--panel); color: var(--ink); text-align: center; box-shadow: 0 24px 80px rgba(0, 0, 0, .5); }
+.result-dialog::backdrop { background: rgba(3, 7, 6, .72); backdrop-filter: blur(6px); }
+.result-icon { display: grid; place-items: center; width: 48px; height: 48px; margin: 0 auto 18px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 22px; font-weight: 900; }
+.result-dialog h2 { margin: 8px 0 0; }
+.result-time { margin: 20px 0 5px; font-size: 56px; font-weight: 750; font-variant-numeric: tabular-nums; letter-spacing: -.06em; }
+.result-summary { min-height: 40px; margin: 0 0 24px; color: var(--muted); line-height: 1.55; }
+.result-dialog .start-button { width: 100%; }
+
 body.break-mode .ring-value { stroke: var(--warm); }
 body.break-mode .eyebrow { color: var(--warm); }
+body.overtime-mode .ring-value { stroke: var(--warm); }
 
 @media (max-width: 850px) {
   :root { --ring-size: min(78vw, 310px); }

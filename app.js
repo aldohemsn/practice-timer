@@ -1,9 +1,11 @@
 const PRESETS = {
   general: {
     isGeneral: true,
-    taskName: "本次练习",
+    taskName: "英语摘要写作",
+    requirements: "130—150词\n5至7句\n根据给定事实准确概括",
     stages: [
-      { name: "本次练习", hint: "在目标时间内完成；完成后记录实际用时。", minutes: 5 }
+      { name: "写作", hint: "完成摘要初稿，注意信息准确和篇幅要求。", minutes: 9 },
+      { name: "检查", hint: "必须检查词数、句数、逻辑和语言错误。", minutes: 3 }
     ],
     breakMinutes: 0,
     rounds: 1
@@ -42,6 +44,8 @@ const elements = {
   fullscreen: $("#fullscreenButton"), restore: $("#restoreButton"), sequence: $("#sequence"), toast: $("#toast"),
   first: $("#stageOneMinutes"), second: $("#stageTwoMinutes"), breakTime: $("#breakMinutes"), rounds: $("#roundsInput"),
   taskName: $("#taskNameInput"), stageOneLabel: $("#stageOneLabel"), resultDialog: $("#resultDialog"),
+  taskRequirements: $("#taskRequirementsInput"), requirementsDisplay: $("#taskRequirementsDisplay"), taskBrief: $("#taskBrief"),
+  stageOneName: $("#stageOneName"), stageTwoName: $("#stageTwoName"), stageTwoLabel: $("#stageTwoLabel"),
   resultTitle: $("#resultTitle"), resultTime: $("#resultTime"), resultSummary: $("#resultSummary"), resultClose: $("#resultClose")
 };
 
@@ -57,10 +61,12 @@ let animationId = null;
 let soundEnabled = localStorage.getItem("practiceTimerSound") !== "false";
 let audioContext = null;
 let overtimeAlerted = false;
+let sessionElapsed = 0;
 
 function loadConfig() {
   try {
     const saved = JSON.parse(localStorage.getItem("practiceTimerConfig"));
+    if (saved?.isGeneral && saved.stages?.length < 2) return structuredClone(PRESETS.general);
     if (saved?.stages?.length >= 1) return saved;
   } catch (_) {}
   return structuredClone(PRESETS[presetKey] || PRESETS.consecutive);
@@ -89,14 +95,19 @@ function render() {
   elements.clock.textContent = remaining < 0 ? `+${formatTime(-remaining)}` : formatTime(remaining);
   elements.title.textContent = phase.name;
   elements.hint.textContent = phase.hint;
-  elements.round.textContent = `第 ${currentRound} 轮，共 ${config.rounds} 轮`;
+  const targetSeconds = config.stages.reduce((sum, stage) => sum + stage.minutes * 60, 0);
+  elements.round.textContent = config.isGeneral
+    ? `总限时 ${formatTime(targetSeconds)} · 第 ${phaseIndex + 1}/${config.stages.length} 阶段`
+    : `第 ${currentRound} 轮，共 ${config.rounds} 轮`;
   elements.startLabel.textContent = running ? "暂停" : remaining < total ? "继续" : "开始";
   elements.startIcon.textContent = running ? "Ⅱ" : "▶";
   elements.ring.style.strokeDashoffset = String(904.78 * (1 - Math.max(0, remaining) / total));
   document.body.classList.toggle("break-mode", Boolean(phase.isBreak));
   document.body.classList.toggle("general-mode", Boolean(config.isGeneral));
   document.body.classList.toggle("overtime-mode", Boolean(config.isGeneral && remaining < 0));
-  elements.skip.textContent = config.isGeneral ? "完成任务" : "下一阶段";
+  elements.skip.textContent = config.isGeneral && phaseIndex === config.stages.length - 1 ? "完成任务" : "下一阶段";
+  elements.taskBrief.hidden = !config.isGeneral;
+  elements.requirementsDisplay.textContent = config.requirements || "未填写具体要求";
   document.title = `${remaining < 0 ? "+" : ""}${formatTime(Math.abs(remaining))} · ${phase.name} · Practice Timer`;
   renderSequence();
 }
@@ -114,7 +125,11 @@ function syncInputs() {
   elements.breakTime.value = config.breakMinutes;
   elements.rounds.value = config.rounds;
   elements.taskName.value = config.taskName || config.stages[0].name;
-  elements.stageOneLabel.textContent = config.isGeneral ? "限时目标" : "第一阶段";
+  elements.taskRequirements.value = config.requirements || "";
+  elements.stageOneName.value = config.stages[0].name;
+  elements.stageTwoName.value = config.stages[1]?.name || "检查";
+  elements.stageOneLabel.textContent = config.isGeneral ? "阶段一时长" : "第一阶段";
+  elements.stageTwoLabel.textContent = config.isGeneral ? "阶段二时长" : "第二阶段";
   document.querySelectorAll(".preset").forEach(button => button.classList.toggle("active", button.dataset.preset === presetKey));
 }
 
@@ -132,8 +147,17 @@ function startPause() {
 
 function tick(now) {
   if (!running) return;
-  remaining -= (now - lastTick) / 1000;
+  const delta = (now - lastTick) / 1000;
+  remaining -= delta;
+  sessionElapsed += delta;
   lastTick = now;
+  if (remaining <= 0 && config.isGeneral && phaseIndex < config.stages.length - 1) {
+    remaining = 0;
+    render();
+    beep(880, 0.13, 3);
+    advance(true);
+    return;
+  }
   if (remaining <= 0 && config.isGeneral) {
     if (!overtimeAlerted) {
       overtimeAlerted = true;
@@ -158,7 +182,19 @@ function tick(now) {
 function advance(autoplay = false) {
   cancelAnimationFrame(animationId);
   if (config.isGeneral) {
-    completeGeneralTask();
+    if (phaseIndex < config.stages.length - 1) {
+      phaseIndex += 1;
+      total = activePhase().minutes * 60;
+      remaining = total;
+      overtimeAlerted = false;
+      running = autoplay;
+      lastTick = performance.now();
+      render();
+      showToast(`${activePhase().name}阶段开始`);
+      if (running) animationId = requestAnimationFrame(tick);
+    } else {
+      completeGeneralTask();
+    }
     return;
   }
   const phases = phaseList();
@@ -205,6 +241,7 @@ function resetTimer() {
   total = config.stages[0].minutes * 60;
   remaining = total;
   overtimeAlerted = false;
+  sessionElapsed = 0;
   render();
 }
 
@@ -229,15 +266,16 @@ function updateCustomConfig() {
 }
 
 function completeGeneralTask() {
-  const elapsed = Math.max(0, total - remaining);
-  const difference = total - elapsed;
+  const target = config.stages.reduce((sum, stage) => sum + stage.minutes * 60, 0);
+  const elapsed = Math.max(0, sessionElapsed);
+  const difference = target - elapsed;
   running = false;
   cancelAnimationFrame(animationId);
   elements.resultTitle.textContent = config.taskName || "练习完成";
   elements.resultTime.textContent = formatTime(elapsed);
   elements.resultSummary.textContent = difference >= 0
-    ? `实际用时 ${formatTime(elapsed)}，比 ${formatTime(total)} 的目标提前 ${formatTime(difference)}。`
-    : `实际用时 ${formatTime(elapsed)}，超过 ${formatTime(total)} 的目标 ${formatTime(-difference)}。`;
+    ? `实际用时 ${formatTime(elapsed)}，比 ${formatTime(target)} 的总限时提前 ${formatTime(difference)}。`
+    : `实际用时 ${formatTime(elapsed)}，超过 ${formatTime(target)} 的总限时 ${formatTime(-difference)}。`;
   elements.resultDialog.showModal();
   beep(difference >= 0 ? 740 : 540, 0.16, 2);
   render();
@@ -281,12 +319,18 @@ elements.restore.addEventListener("click", () => applyPreset(presetKey));
 document.querySelectorAll(".preset").forEach(button => button.addEventListener("click", () => applyPreset(button.dataset.preset)));
 [elements.first, elements.second, elements.breakTime, elements.rounds].forEach(input => input.addEventListener("change", updateCustomConfig));
 elements.taskName.addEventListener("change", () => {
-  const name = elements.taskName.value.trim() || "本次练习";
+  const name = elements.taskName.value.trim() || "分阶段任务";
   config.taskName = name;
-  config.stages[0].name = name;
   saveConfig();
   render();
 });
+[elements.taskRequirements, elements.stageOneName, elements.stageTwoName].forEach(input => input.addEventListener("change", () => {
+  config.requirements = elements.taskRequirements.value.trim();
+  config.stages[0].name = elements.stageOneName.value.trim() || "执行";
+  if (config.stages[1]) config.stages[1].name = elements.stageTwoName.value.trim() || "检查";
+  saveConfig();
+  render();
+}));
 elements.resultClose.addEventListener("click", () => {
   elements.resultDialog.close();
   resetTimer();

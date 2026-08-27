@@ -1,4 +1,13 @@
 const PRESETS = {
+  general: {
+    isGeneral: true,
+    taskName: "本次练习",
+    stages: [
+      { name: "本次练习", hint: "在目标时间内完成；完成后记录实际用时。", minutes: 5 }
+    ],
+    breakMinutes: 0,
+    rounds: 1
+  },
   consecutive: {
     stages: [
       { name: "听取与笔记", hint: "集中获取信息，暂不组织译文。", minutes: 3 },
@@ -31,7 +40,9 @@ const elements = {
   round: $("#roundLabel"), start: $("#startButton"), startLabel: $("#startLabel"), startIcon: $("#startIcon"),
   reset: $("#resetButton"), skip: $("#skipButton"), sound: $("#soundButton"), soundIcon: $("#soundIcon"),
   fullscreen: $("#fullscreenButton"), restore: $("#restoreButton"), sequence: $("#sequence"), toast: $("#toast"),
-  first: $("#stageOneMinutes"), second: $("#stageTwoMinutes"), breakTime: $("#breakMinutes"), rounds: $("#roundsInput")
+  first: $("#stageOneMinutes"), second: $("#stageTwoMinutes"), breakTime: $("#breakMinutes"), rounds: $("#roundsInput"),
+  taskName: $("#taskNameInput"), stageOneLabel: $("#stageOneLabel"), resultDialog: $("#resultDialog"),
+  resultTitle: $("#resultTitle"), resultTime: $("#resultTime"), resultSummary: $("#resultSummary"), resultClose: $("#resultClose")
 };
 
 let presetKey = localStorage.getItem("practiceTimerPreset") || "consecutive";
@@ -45,11 +56,12 @@ let lastTick = null;
 let animationId = null;
 let soundEnabled = localStorage.getItem("practiceTimerSound") !== "false";
 let audioContext = null;
+let overtimeAlerted = false;
 
 function loadConfig() {
   try {
     const saved = JSON.parse(localStorage.getItem("practiceTimerConfig"));
-    if (saved?.stages?.length === 2) return saved;
+    if (saved?.stages?.length >= 1) return saved;
   } catch (_) {}
   return structuredClone(PRESETS[presetKey] || PRESETS.consecutive);
 }
@@ -74,7 +86,7 @@ function formatTime(seconds) {
 
 function render() {
   const phase = activePhase();
-  elements.clock.textContent = formatTime(remaining);
+  elements.clock.textContent = remaining < 0 ? `+${formatTime(-remaining)}` : formatTime(remaining);
   elements.title.textContent = phase.name;
   elements.hint.textContent = phase.hint;
   elements.round.textContent = `第 ${currentRound} 轮，共 ${config.rounds} 轮`;
@@ -82,7 +94,10 @@ function render() {
   elements.startIcon.textContent = running ? "Ⅱ" : "▶";
   elements.ring.style.strokeDashoffset = String(904.78 * (1 - Math.max(0, remaining) / total));
   document.body.classList.toggle("break-mode", Boolean(phase.isBreak));
-  document.title = `${formatTime(remaining)} · ${phase.name} · Practice Timer`;
+  document.body.classList.toggle("general-mode", Boolean(config.isGeneral));
+  document.body.classList.toggle("overtime-mode", Boolean(config.isGeneral && remaining < 0));
+  elements.skip.textContent = config.isGeneral ? "完成任务" : "下一阶段";
+  document.title = `${remaining < 0 ? "+" : ""}${formatTime(Math.abs(remaining))} · ${phase.name} · Practice Timer`;
   renderSequence();
 }
 
@@ -95,9 +110,11 @@ function renderSequence() {
 
 function syncInputs() {
   elements.first.value = config.stages[0].minutes;
-  elements.second.value = config.stages[1].minutes;
+  elements.second.value = config.stages[1]?.minutes ?? 4;
   elements.breakTime.value = config.breakMinutes;
   elements.rounds.value = config.rounds;
+  elements.taskName.value = config.taskName || config.stages[0].name;
+  elements.stageOneLabel.textContent = config.isGeneral ? "限时目标" : "第一阶段";
   document.querySelectorAll(".preset").forEach(button => button.classList.toggle("active", button.dataset.preset === presetKey));
 }
 
@@ -117,6 +134,16 @@ function tick(now) {
   if (!running) return;
   remaining -= (now - lastTick) / 1000;
   lastTick = now;
+  if (remaining <= 0 && config.isGeneral) {
+    if (!overtimeAlerted) {
+      overtimeAlerted = true;
+      beep(880, 0.13, 2);
+      showToast("目标时间已到，正在记录超时");
+    }
+    render();
+    animationId = requestAnimationFrame(tick);
+    return;
+  }
   if (remaining <= 0) {
     remaining = 0;
     render();
@@ -130,6 +157,10 @@ function tick(now) {
 
 function advance(autoplay = false) {
   cancelAnimationFrame(animationId);
+  if (config.isGeneral) {
+    completeGeneralTask();
+    return;
+  }
   const phases = phaseList();
   const nextPhaseIsFinalBreak = phaseIndex === config.stages.length - 1 && currentRound === config.rounds;
   if (nextPhaseIsFinalBreak) {
@@ -173,6 +204,7 @@ function resetTimer() {
   currentRound = 1;
   total = config.stages[0].minutes * 60;
   remaining = total;
+  overtimeAlerted = false;
   render();
 }
 
@@ -188,13 +220,27 @@ function applyPreset(key) {
 function updateCustomConfig() {
   const valid = (value, fallback, min, max) => Math.min(max, Math.max(min, Number(value) || fallback));
   config.stages[0].minutes = valid(elements.first.value, 3, 0.1, 60);
-  config.stages[1].minutes = valid(elements.second.value, 4, 0.1, 60);
+  if (config.stages[1]) config.stages[1].minutes = valid(elements.second.value, 4, 0.1, 60);
   config.breakMinutes = valid(elements.breakTime.value, 0, 0, 30);
   config.rounds = Math.round(valid(elements.rounds.value, 3, 1, 20));
-  presetKey = "custom";
   saveConfig();
   syncInputs();
   resetTimer();
+}
+
+function completeGeneralTask() {
+  const elapsed = Math.max(0, total - remaining);
+  const difference = total - elapsed;
+  running = false;
+  cancelAnimationFrame(animationId);
+  elements.resultTitle.textContent = config.taskName || "练习完成";
+  elements.resultTime.textContent = formatTime(elapsed);
+  elements.resultSummary.textContent = difference >= 0
+    ? `实际用时 ${formatTime(elapsed)}，比 ${formatTime(total)} 的目标提前 ${formatTime(difference)}。`
+    : `实际用时 ${formatTime(elapsed)}，超过 ${formatTime(total)} 的目标 ${formatTime(-difference)}。`;
+  elements.resultDialog.showModal();
+  beep(difference >= 0 ? 740 : 540, 0.16, 2);
+  render();
 }
 
 function ensureAudio() {
@@ -231,9 +277,20 @@ function showToast(message) {
 elements.start.addEventListener("click", startPause);
 elements.reset.addEventListener("click", resetTimer);
 elements.skip.addEventListener("click", () => advance(false));
-elements.restore.addEventListener("click", () => applyPreset(presetKey === "custom" ? "consecutive" : presetKey));
+elements.restore.addEventListener("click", () => applyPreset(presetKey));
 document.querySelectorAll(".preset").forEach(button => button.addEventListener("click", () => applyPreset(button.dataset.preset)));
 [elements.first, elements.second, elements.breakTime, elements.rounds].forEach(input => input.addEventListener("change", updateCustomConfig));
+elements.taskName.addEventListener("change", () => {
+  const name = elements.taskName.value.trim() || "本次练习";
+  config.taskName = name;
+  config.stages[0].name = name;
+  saveConfig();
+  render();
+});
+elements.resultClose.addEventListener("click", () => {
+  elements.resultDialog.close();
+  resetTimer();
+});
 
 elements.sound.addEventListener("click", () => {
   soundEnabled = !soundEnabled;

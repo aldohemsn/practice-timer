@@ -5,6 +5,7 @@ A focused, dependency-free interval timer for interpreting practice.
 ## Features
 
 - Presets for consecutive interpreting, listening retelling, and sight interpreting
+- General timed-task mode that reports actual completion time against a target
 - Configurable stage duration, break, and number of rounds
 - Automatic phase transitions with optional audio cues
 - Fullscreen mode and keyboard shortcuts

@@ -7,6 +7,7 @@ const ui = {
   minutes: $("#minutes"),
   seconds: $("#seconds"),
   remaining: $("#remaining"),
+  elapsed: $("#elapsed"),
   status: $("#status"),
   progress: $("#progress"),
   cancel: $("#cancelButton"),
@@ -53,6 +54,7 @@ function render() {
 
   if (!idle) {
     ui.remaining.textContent = format(timeLeft);
+    ui.elapsed.textContent = `已用 ${format(duration - timeLeft)}`;
     const ratio = duration ? Math.max(0, timeLeft / duration) : 0;
     ui.progress.style.strokeDashoffset = String(CIRCUMFERENCE * (1 - ratio));
   }

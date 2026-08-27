@@ -2,144 +2,40 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#121717">
-  <meta name="description" content="A focused interval timer for interpreting practice.">
-  <title>Practice Timer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="description" content="A simple countdown timer.">
+  <title>计时器</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="app-shell">
-    <header class="topbar">
-      <a class="brand" href="." aria-label="Practice Timer 首页">
-        <span class="brand-mark" aria-hidden="true">PT</span>
-        <span>Practice Timer</span>
-      </a>
-      <div class="top-actions">
-        <button class="icon-button" id="soundButton" type="button" aria-label="关闭提示音" title="提示音">
-          <span id="soundIcon" aria-hidden="true">♪</span>
-        </button>
-        <button class="icon-button" id="fullscreenButton" type="button" aria-label="进入全屏" title="全屏">
-          <span aria-hidden="true">⛶</span>
-        </button>
-      </div>
-    </header>
+  <main class="timer-app">
+    <header><h1>计时器</h1></header>
 
-    <section class="workspace" aria-labelledby="timerTitle">
-      <div class="timer-panel">
-        <div class="phase-heading">
-          <span class="eyebrow" id="roundLabel">第 1 轮，共 3 轮</span>
-          <h1 id="timerTitle">听取与笔记</h1>
-          <p id="phaseHint">集中获取信息，暂不组织译文。</p>
-          <div class="task-brief" id="taskBrief" hidden>
-            <strong>任务要求</strong>
-            <p id="taskRequirementsDisplay"></p>
-          </div>
-        </div>
-
-        <div class="clock-wrap" aria-live="polite">
-          <svg class="progress-ring" viewBox="0 0 320 320" aria-hidden="true">
-            <circle class="ring-track" cx="160" cy="160" r="144" />
-            <circle class="ring-value" id="progressRing" cx="160" cy="160" r="144" />
-          </svg>
-          <div class="clock" id="clock">03:00</div>
-        </div>
-
-        <div class="primary-controls">
-          <button class="secondary-button" id="resetButton" type="button">重置</button>
-          <button class="start-button" id="startButton" type="button">
-            <span id="startIcon" aria-hidden="true">▶</span>
-            <span id="startLabel">开始</span>
-          </button>
-          <button class="secondary-button" id="skipButton" type="button">下一阶段</button>
-        </div>
-
-        <p class="shortcut-hint"><kbd>Space</kbd> 开始/暂停 · <kbd>N</kbd> 下一阶段 · <kbd>R</kbd> 重置</p>
+    <section class="timer-face" aria-live="polite">
+      <div class="picker" id="picker">
+        <label><input id="hours" type="number" min="0" max="23" value="0" inputmode="numeric" aria-label="小时"><span>小时</span></label>
+        <label><input id="minutes" type="number" min="0" max="59" value="12" inputmode="numeric" aria-label="分钟"><span>分钟</span></label>
+        <label><input id="seconds" type="number" min="0" max="59" value="0" inputmode="numeric" aria-label="秒"><span>秒</span></label>
       </div>
 
-      <aside class="settings-panel" aria-label="训练设置">
-        <div class="panel-section">
-          <div class="section-heading">
-            <div>
-              <span class="eyebrow">训练方案</span>
-              <h2>选择节奏</h2>
-            </div>
-          </div>
-          <div class="preset-grid" id="presetGrid">
-            <button class="preset" type="button" data-preset="general">
-              <strong>分阶段任务</strong><span>任务要求 · 阶段限时 · 实际用时</span>
-            </button>
-            <button class="preset active" type="button" data-preset="consecutive">
-              <strong>交替传译</strong><span>3′ 听取 · 4′ 口译</span>
-            </button>
-            <button class="preset" type="button" data-preset="retelling">
-              <strong>听力复述</strong><span>2′ 听取 · 2′ 复述</span>
-            </button>
-            <button class="preset" type="button" data-preset="sight">
-              <strong>视译</strong><span>1′ 准备 · 3′ 口译</span>
-            </button>
-          </div>
+      <div class="countdown" id="countdown" hidden>
+        <svg viewBox="0 0 300 300" aria-hidden="true">
+          <circle class="track" cx="150" cy="150" r="140"></circle>
+          <circle class="progress" id="progress" cx="150" cy="150" r="140"></circle>
+        </svg>
+        <div class="time-copy">
+          <span class="remaining" id="remaining">12:00</span>
+          <span class="status" id="status">倒计时</span>
         </div>
+      </div>
+    </section>
 
-        <div class="panel-section">
-          <div class="section-heading">
-            <div>
-              <span class="eyebrow">自定义</span>
-              <h2>阶段与轮次</h2>
-            </div>
-            <button class="text-button" id="restoreButton" type="button">恢复预设</button>
-          </div>
-
-          <div class="field-grid">
-            <label class="field general-only" id="taskNameField">
-              <span>任务名称</span>
-              <span class="input-wrap"><input id="taskNameInput" type="text" maxlength="60" value="英语摘要写作" placeholder="例如：英语摘要写作"></span>
-            </label>
-            <label class="field general-only full-width">
-              <span>任务要求（每行一项）</span>
-              <span class="input-wrap textarea-wrap"><textarea id="taskRequirementsInput" rows="3" maxlength="300" placeholder="例如：130—150词&#10;5至7句"></textarea></span>
-            </label>
-            <label class="field general-only">
-              <span>阶段一名称</span>
-              <span class="input-wrap"><input id="stageOneName" type="text" maxlength="24" value="写作"></span>
-            </label>
-            <label class="field">
-              <span id="stageOneLabel">第一阶段</span>
-              <span class="input-wrap"><input id="stageOneMinutes" type="number" inputmode="decimal" min="0.1" max="60" step="0.5" value="3"><em>分钟</em></span>
-            </label>
-            <label class="field general-only">
-              <span>阶段二名称</span>
-              <span class="input-wrap"><input id="stageTwoName" type="text" maxlength="24" value="检查"></span>
-            </label>
-            <label class="field">
-              <span id="stageTwoLabel">第二阶段</span>
-              <span class="input-wrap"><input id="stageTwoMinutes" type="number" inputmode="decimal" min="0.1" max="60" step="0.5" value="4"><em>分钟</em></span>
-            </label>
-            <label class="field interval-only">
-              <span>轮间休息</span>
-              <span class="input-wrap"><input id="breakMinutes" type="number" inputmode="decimal" min="0" max="30" step="0.5" value="1"><em>分钟</em></span>
-            </label>
-            <label class="field interval-only">
-              <span>训练轮次</span>
-              <span class="input-wrap"><input id="roundsInput" type="number" inputmode="numeric" min="1" max="20" step="1" value="3"><em>轮</em></span>
-            </label>
-          </div>
-        </div>
-
-        <div class="sequence" id="sequence" aria-label="当前训练流程"></div>
-      </aside>
+    <section class="controls" aria-label="计时控制">
+      <button class="round-button secondary" id="cancelButton" type="button" disabled><span>取消</span></button>
+      <button class="round-button primary" id="startButton" type="button"><span id="startLabel">开始</span></button>
     </section>
   </main>
-
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <dialog class="result-dialog" id="resultDialog">
-    <div class="result-icon" aria-hidden="true">✓</div>
-    <span class="eyebrow">任务记录</span>
-    <h2 id="resultTitle">练习完成</h2>
-    <p class="result-time" id="resultTime">04:32</p>
-    <p class="result-summary" id="resultSummary"></p>
-    <button class="start-button" id="resultClose" type="button">返回计时器</button>
-  </dialog>
   <script src="app.js"></script>
 </body>
 </html>

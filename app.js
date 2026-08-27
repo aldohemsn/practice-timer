@@ -53,20 +53,20 @@ function render() {
   ui.cancel.disabled = idle;
 
   if (!idle) {
-    ui.remaining.textContent = format(timeLeft);
+    ui.remaining.textContent = timeLeft < 0 ? `+${format(-timeLeft)}` : format(timeLeft);
     ui.elapsed.textContent = `已用 ${format(duration - timeLeft)}`;
     const ratio = duration ? Math.max(0, timeLeft / duration) : 0;
     ui.progress.style.strokeDashoffset = String(CIRCUMFERENCE * (1 - ratio));
   }
 
-  ui.start.classList.toggle("pause", state === "running");
-  document.body.classList.toggle("finished", state === "finished");
+  ui.start.classList.toggle("pause", state === "running" || state === "overtime");
+  document.body.classList.toggle("finished", state === "stopped");
 
-  const labels = { idle: "开始", running: "暂停", paused: "继续", finished: "重复" };
-  const statuses = { running: "倒计时", paused: "已暂停", finished: "时间到" };
+  const labels = { idle: "开始", running: "暂停", paused: "继续", overtime: "停止", stopped: "重复" };
+  const statuses = { running: "倒计时", paused: "已暂停", overtime: "已超时", stopped: "最终用时" };
   ui.startLabel.textContent = labels[state];
   if (!idle) ui.status.textContent = statuses[state] || "倒计时";
-  document.title = idle ? "计时器" : `${format(timeLeft)} · 计时器`;
+  document.title = idle ? "计时器" : `${timeLeft < 0 ? "+" : ""}${format(Math.abs(timeLeft))} · 计时器`;
 }
 
 function start() {
@@ -75,7 +75,7 @@ function start() {
     if (!duration) return;
     localStorage.setItem("timerDuration", String(duration));
     timeLeft = duration;
-  } else if (state === "finished") {
+  } else if (state === "stopped") {
     timeLeft = duration;
   }
   state = "running";
@@ -91,6 +91,12 @@ function pause() {
   render();
 }
 
+function stop() {
+  state = "stopped";
+  cancelAnimationFrame(frameId);
+  render();
+}
+
 function cancel() {
   cancelAnimationFrame(frameId);
   state = "idle";
@@ -99,15 +105,12 @@ function cancel() {
 }
 
 function tick(now) {
-  if (state !== "running") return;
+  if (state !== "running" && state !== "overtime") return;
   timeLeft -= (now - lastFrame) / 1000;
   lastFrame = now;
-  if (timeLeft <= 0) {
-    timeLeft = 0;
-    state = "finished";
+  if (timeLeft <= 0 && state === "running") {
+    state = "overtime";
     alertSound();
-    render();
-    return;
   }
   render();
   frameId = requestAnimationFrame(tick);
@@ -135,7 +138,11 @@ function alertSound() {
   }
 }
 
-ui.start.addEventListener("click", () => state === "running" ? pause() : start());
+ui.start.addEventListener("click", () => {
+  if (state === "running") pause();
+  else if (state === "overtime") stop();
+  else start();
+});
 ui.cancel.addEventListener("click", cancel);
 [ui.hours, ui.minutes, ui.seconds].forEach(input => input.addEventListener("change", readDuration));
 
@@ -143,7 +150,9 @@ document.addEventListener("keydown", (event) => {
   if (document.activeElement.tagName === "INPUT") return;
   if (event.code === "Space") {
     event.preventDefault();
-    state === "running" ? pause() : start();
+    if (state === "running") pause();
+    else if (state === "overtime") stop();
+    else start();
   }
   if (event.key === "Escape" && state !== "idle") cancel();
 });
